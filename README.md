@@ -1,5 +1,7 @@
 # Algorithms for Geographical Data
 
+![dots](./dots.png)
+
 #### How to install
 1. Install [yarn](https://yarnpkg.com/en/) (package manager)
 2. Run `yarn` in the project directory to install dependencies (also needs to be run when dependencies are updated) 
