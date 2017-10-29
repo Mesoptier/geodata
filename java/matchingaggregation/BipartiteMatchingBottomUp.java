@@ -382,6 +382,7 @@ public class BipartiteMatchingBottomUp {
     }
 
     public HashMap<Node,  ArrayList<Node>> getFinalMapping() {
+        // Does not work yet, but easy to fix.
         HashMap<Node,  ArrayList<Node>> finalHashMap = new HashMap<>();
 
         for (BipartiteGraph.RightNode key : graph.getFinalMapping().keySet()) {

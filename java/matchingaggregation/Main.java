@@ -13,37 +13,14 @@ import java.util.HashMap;
 public class Main {
     public static void main(String[] args) throws IOException{
         ReadInput inputReader = new ReadInput();
-        String[] testGrid = new String[] {
-                "1   333333333333            ",
-                " 1 333333 33 333 33         ",
-                "   3332332 133323   3  33 22",
-                "2    333 33 2 33 33    3   1",
-                "222     333     333   3 2 11",
-                "22222        3   3   3   111",
-                "222      1   1     1    3  1"
-        };
-//        Grid grid = new Grid(testGrid);
 
-//        Grid grid = getRandomGrid(512, 512, 0.5, 3);
-//        Grid grid = new Grid(new String[] {
-//                "1                       1",
-//                " 2                     2 ",
-//                "  3                   3  ",
-//                "                         ",
-//                "                         ",
-//                "                         ",
-//                "                         ",
-//                "  3                   3  ",
-//                " 2                     2 ",
-//                "1                       1",
-//        });
+        Grid testGrid = getRandomGrid(256, 256, 0.5, 3);
 
-        Grid grid;
+        Grid grid = testGrid;
         try {
             grid = inputReader.loadJSON("C:\\Users\\Martijn\\Documents\\GeoData\\data\\", "eindhoven");
         } catch (JSONException e) {
             e.printStackTrace();
-            grid = new Grid(testGrid);
         }
 
 
