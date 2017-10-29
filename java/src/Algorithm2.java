@@ -62,7 +62,7 @@ public class Algorithm2 {
         Map<Integer, List<Point>> data = loadJSON(path, filename);
         BufferedImage image = imageFromJSON(data, width, height);
         
-        ImageMeasure imageMeasure = compute(image, zoomLevel, 2);
+        ImageMeasure imageMeasure = compute(image, zoomLevel, 2 * 2);
         saveAsJSON(imageMeasure, outputFile);
     }
     
