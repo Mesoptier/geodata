@@ -54,7 +54,7 @@ public class Algorithm2 {
         mapping = new HashMap<>();
         
         ImageMeasure imageMeasure = compute(image, zoomLevel, 2 * gridSize);
-        System.out.println("qDist: " + imageMeasure.getQDist());
+        //System.out.println("qDist: " + imageMeasure.getQDist());
         System.out.println("qLoc: " + imageMeasure.getQLoc());
 
         Panel p2 = new Panel(scaleImage(setColours(imageMeasure.getImage()), scale *  2 * zoomLevel));
@@ -242,7 +242,8 @@ public class Algorithm2 {
         return new ImageMeasure(
                 output, 
                 qDists.stream().mapToDouble(v -> v).average().getAsDouble(), 
-                qLocs.stream().mapToDouble(v -> v).average().getAsDouble()
+                //qLocs.stream().mapToDouble(v -> v).average().getAsDouble()
+                qLocs.stream().mapToDouble(v -> v).sum() / (output.getWidth() * output.getHeight())
         );
     }
     
@@ -325,11 +326,10 @@ public class Algorithm2 {
             
             orderedColours.get(0).setValue(orderedColours.get(0).getValue() 
                     - (subtract ));
-            colourMapping[maxX][maxY].put(colour, 
-                    colourMapping[maxX][maxY].getOrDefault(colour, 
-                            (subtract )) 
-                            - (subtract ));
-            
+            colourMapping[maxX][maxY].put(colour,
+                    colourMapping[maxX][maxY].getOrDefault(colour,
+                            (subtract)) - (subtract));
+
             Point pA = new Point(maxX + xOffset, maxY + yOffset);
             mapping.put(pA, new ArrayList<>());
             
@@ -360,14 +360,14 @@ public class Algorithm2 {
                             if (colourMapping[maxX + ex][maxY + ey].getOrDefault(colour, 0) > 0) {
                                 if (colourMapping[maxX + ex][maxY + ey].get(colour) <= dif) {
                                     qLocTemp += colourMapping[maxX + ex][maxY + ey].get(colour) *
-                                            Math.sqrt((ex * 2 * level)
+                                            ((ex * 2 * level)
                                             * (ex * 2 * level)
                                             + (ey * 2 * level)
                                             * (ey * 2 * level));
                                     tempDif = colourMapping[maxX + ex][maxY + ey].get(colour);
                                 } else {
                                     qLocTemp += dif *
-                                            Math.sqrt((ex * 2 * level)
+                                            ((ex * 2 * level)
                                             * (ex * 2 * level)
                                             + (ey * 2 * level)
                                             * (ey * 2 * level));
