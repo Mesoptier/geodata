@@ -56,8 +56,6 @@ public class ReadInput {
 //        System.out.println(grid.length);
         Grid g = new Grid(classes);
 
-
-
         return g;
     }
 

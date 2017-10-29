@@ -1,6 +1,8 @@
 package matchingaggregation;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * Created by Joost on 27/10/2017.
@@ -8,18 +10,18 @@ import java.io.IOException;
 public class Main {
     public static void main(String[] args) throws IOException{
         ReadInput inputReader = new ReadInput();
-        String[] testGrid = new String[] {
-                "1   333333333333            ",
-                " 1 333333 33 333 33         ",
-                "   3332332 133323   3  33 22",
-                "2    333 33 2 33 33    3   1",
-                "222     333     333   3 2 11",
-                "22222        3   3   3   111",
-                "222      1   1     1    3  1"
-        };
-        Grid grid = new Grid(testGrid);
+//        String[] testGrid = new String[] {
+//                "1   333333333333            ",
+//                " 1 333333 33 333 33         ",
+//                "   3332332 133323   3  33 22",
+//                "2    333 33 2 33 33    3   1",
+//                "222     333     333   3 2 11",
+//                "22222        3   3   3   111",
+//                "222      1   1     1    3  1"
+//        };
+//        Grid grid = new Grid(testGrid);
 
-//        Grid grid = getRandomGrid(512, 512, 0.5, 3);
+        Grid grid = getRandomGrid(256, 256, 0.5, 3);
 //        Grid grid = new Grid(new String[] {
 //                "1                       1",
 //                " 2                     2 ",
@@ -36,16 +38,23 @@ public class Main {
 
 //        Grid g = inputReader.loadJSON("C:\\Users\\Joost\\IdeaProjects\\GeoData\\src\\", "eindhoven");
 
-
-
-
         grid.printGrid(false);
 
+
+
+
+
         BipartiteMatchingBottomUp matching = new BipartiteMatchingBottomUp();
+//        BipartiteMatchingTopDown matching = new BipartiteMatchingTopDown();
 
         long startTime = System.nanoTime();
         Grid aggregratedGrid = matching.performAggregation(grid);
         long timeTaken = System.nanoTime()-startTime;
+
+        // Mapping can be called via:
+        HashMap<Node,  ArrayList<Node>> finalMapping = matching.getFinalMapping();
+
+
 
         System.out.println();
         System.out.println("Woo! Aggregation");
