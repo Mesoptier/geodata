@@ -40,15 +40,15 @@ public class Main {
 
         Grid grid;
         try {
-            grid = inputReader.loadJSON("C:\\Users\\Martijn\\Documents\\GeoData\\data\\", "denhaag");
+            grid = inputReader.loadJSON("C:\\Users\\Martijn\\Documents\\GeoData\\data\\", "eindhoven");
         } catch (JSONException e) {
             e.printStackTrace();
             grid = new Grid(testGrid);
         }
 
 
-//        BipartiteMatchingBottomUp matching = new BipartiteMatchingBottomUp();
-        BipartiteMatchingTopDown matching = new BipartiteMatchingTopDown();
+        BipartiteMatchingBottomUp matching = new BipartiteMatchingBottomUp();
+//        BipartiteMatchingTopDown matching = new BipartiteMatchingTopDown();
 
         long startTime = System.nanoTime();
         Grid aggregratedGrid = matching.performAggregation(grid);
@@ -70,7 +70,7 @@ public class Main {
         System.out.println("Final Score (RMSE): " +
                 Math.sqrt(matching.getFinalScore() / aggregratedGrid.getNumberOfValues()));
                 
-        File file = new File("C:\\Users\\Martijn\\Documents\\GeoData\\data\\" + "denhaagAggregated.json");
+        File file = new File("C:\\Users\\Martijn\\Documents\\GeoData\\data\\" + "eindhovenAggregated1.json");
         if (file.exists()) {
             file.delete();
         }
