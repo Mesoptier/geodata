@@ -30,7 +30,7 @@ public class WriteOutput {
         for (int x = 0; x < g.getWidth(); x++) {
             for (int y = 0; y < g.getHeight(); y++) {
                 if (g.getXY(x,y) > 0) {
-                    points.put(new JSONArray("[" + x + "," + "y" + "," + g.getXY(x,y) + "]"));
+                    points.put(new JSONArray("[" + x + "," + y + "," + g.getXY(x,y) + "]"));
                 }
             }
         }

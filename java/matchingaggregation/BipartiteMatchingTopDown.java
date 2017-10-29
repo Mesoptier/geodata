@@ -2,7 +2,9 @@ package matchingaggregation;
 
 import java.util.*;
 
-public class BipartiteMatchingBottomUp {
+public class BipartiteMatchingTopDown {
+
+    final int FOUR_MATCHING = 4;
 
     BipartiteGraph graph;
 
@@ -16,7 +18,7 @@ public class BipartiteMatchingBottomUp {
 
         RightNode [][] rightNodesGrid;
 
-        LinkedList<Edge> allEdges;
+        TreeSet<Edge> allAddedEdges;
 
         PriorityQueue<LeftNode> leftNodeQueueByTranslation;
 
@@ -24,6 +26,9 @@ public class BipartiteMatchingBottomUp {
 
         int nrOfTimesToAggregate;
         int nrOfClasses;
+        int [] nrOfSkipsPerClass;
+
+        boolean allLeftNodesAre4Matched;
 
         BipartiteGraph(Grid originalGrid, Grid aggregatedGrid)  {
             this.originalGrid = originalGrid;
@@ -32,8 +37,11 @@ public class BipartiteMatchingBottomUp {
             nrOfTimesToAggregate = originalGrid.getNumberOfTimesToAggregate();
             finalMapping = new HashMap<>();
             rightNodesGrid = new RightNode[aggregatedGrid.getHeight()][aggregatedGrid.getWidth()];
+            nrOfSkipsPerClass = originalGrid.getNumberOfTimesToSkipPerClass();
+            allAddedEdges = new TreeSet<>();
             initializeTranslations();
             initializeGraph();
+
         }
 
         protected void initializeTranslations() {
@@ -103,80 +111,128 @@ public class BipartiteMatchingBottomUp {
             return getFinalMapping();
         }
 
-        public void removeAllEdgesComingFromLeftNode(LeftNode satisfiedLeftNode) {
-            for (Edge edgeToRemove : satisfiedLeftNode.edges) {
-                edgeToRemove.rightNode.removeEdge(edgeToRemove, satisfiedLeftNode.c);
+        void removeEdge(Edge edge, boolean removeFromAllEdges, boolean removeFromLeftNodeEdges) {
+            edge.rightNode.removeRightEdge(edge);
+            if (removeFromAllEdges) {
+                allAddedEdges.remove(edge);
+            }
+            if (removeFromLeftNodeEdges) {
+                edge.leftNode.edges.remove(edge);
             }
         }
 
 
-        public void generateEdgesUntilNoMoreMatches() {
-            // Keep adding edges to the biparite graph until we get a 4-matching.
-//            System.out.println("Number of times to aggregate: " + nrOfTimesToAggregate);
-            while (nrOfTimesToAggregate > 0) {
+        public void generateEdgesUntilAllLeftNodesAreFourMatched() {
+            // Keep adding edges to the biparite graph until all left nodes are 4-matched.
+            while (! leftNodeQueueByTranslation.isEmpty()) {
                 LeftNode nextLeftNode = leftNodeQueueByTranslation.poll();
-                Translation translation = translations[nextLeftNode.nextTranslation];
+                nextLeftNode.isInQueue = false;
 //                System.out.println("Current leftnode: " + nextLeftNode.x + ", " + nextLeftNode.y);
 //                System.out.println("Translation: " + translation.dx + ", " + translation.dy);
-                nextLeftNode.nextTranslation++;
-                // Easy trick to get to the nearest node.
 
-                int nextRightNodeX = ((nextLeftNode.x - nextLeftNode.x%2)+ 2*translation.dx)/2 ;
-                int nextRightNodeY = ((nextLeftNode.y - nextLeftNode.y%2)+ 2*translation.dy)/2 ;
+                // Check if it makes sense to add an edge.
+                if (!nextLeftNode.hasAlreadyValidMatching() && !nextLeftNode.alreadyAggregated) {
+                    Translation translation = translations[nextLeftNode.nextTranslation];
+                    nextLeftNode.nextTranslation ++;
 
-//                System.out.println("Next rightnode: "+ nextRightNodeX + ", " + nextRightNodeY);
-                boolean addToQueueAgain = true;
-                if (nextRightNodeX >= 0 && nextRightNodeY >= 0
-                        && nextRightNodeX < aggregatedGrid.getWidth() && nextRightNodeY < aggregatedGrid.getHeight())
-                {
-                    RightNode nextRightNode = rightNodesGrid[nextRightNodeY][nextRightNodeX];
-                    if (nextRightNode.classWhichHasBeenSatisfied == -1)
+                    // Math trick to get to the required node in the aggregated grid.
+                    int nextRightNodeX = ((nextLeftNode.x - nextLeftNode.x%2)+ 2*translation.dx)/2 ;
+                    int nextRightNodeY = ((nextLeftNode.y - nextLeftNode.y%2)+ 2*translation.dy)/2 ;
+
+                    if (nextRightNodeX >= 0 && nextRightNodeY >= 0
+                            && nextRightNodeX < aggregatedGrid.getWidth() && nextRightNodeY < aggregatedGrid.getHeight())
                     {
-                        Edge edge = new Edge(nextLeftNode, nextRightNode);
-                        nextRightNode.addEdge(edge, nextLeftNode.c);
-                        nextLeftNode.addEdge(edge);
+                        RightNode nextRightNode = rightNodesGrid[nextRightNodeY][nextRightNodeX];
+                        if (! nextRightNode.fourMatchingSatisfied())
+                        {
+                            Edge edge = new Edge(nextLeftNode, nextRightNode);
+                            nextRightNode.addEdge(edge);
+                            nextLeftNode.addEdge(edge);
+                            allAddedEdges.add(edge);
+                        }
                     }
 
-                    // Check if a 4-matching has been satisfied.
-                    if (nextRightNode.fourMatchingSatisfied()) {
-                        completeMatching(nextRightNode);
-                        addToQueueAgain = false;
-                    }
-                }
-
-                if (addToQueueAgain) {
-                    leftNodeQueueByTranslation.add(nextLeftNode);
+                    addLeftNodeToQueueIfNecessary(nextLeftNode);
                 }
             }
         }
 
-        private void completeMatching(RightNode satisfiedRightNode) {
-            int satisfiedClass = satisfiedRightNode.getClassWhichHasBeenSatisfied();
-            TreeSet<Edge> selectedEdges = satisfiedRightNode.getEdgesByClass(satisfiedClass);
-//                    System.out.println(selectedEdges.first());
-            ArrayList<LeftNode> selectedLeftNodes = new ArrayList<>();
+        private void addLeftNodeToQueueIfNecessary(LeftNode nextLeftNode) {
+            if (!nextLeftNode.isInQueue && !nextLeftNode.hasAlreadyValidMatching()) {
+                nextLeftNode.isInQueue = true;
+                leftNodeQueueByTranslation.add(nextLeftNode);
+            }
+        }
 
-            for (int i = 0; i < 4; i++) {
-                Edge selectedEdge =  selectedEdges.pollFirst();
-//                System.out.println(selectedEdge);
+        private void completeMatching(Edge lastEdge) {
+            RightNode satisfiedRightNode = lastEdge.rightNode;
+            LeftNode curLeftNode = lastEdge.leftNode;
+
+            ArrayList<LeftNode> selectedLeftNodes = new ArrayList<>();
+            selectedLeftNodes.add(curLeftNode);
+
+            finalScore += lastEdge.euclideanDistanceSquared;
+
+            // Selects the three other edges from the right node.
+            for (int i = 0; i < FOUR_MATCHING - 1; i++) {
+                Edge selectedEdge  = satisfiedRightNode.edgesByClass[curLeftNode.c-1].first();
+
                 LeftNode satisfiedLeftNode = selectedEdge.leftNode;
                 selectedLeftNodes.add(satisfiedLeftNode);
                 finalScore += selectedEdge.euclideanDistanceSquared;
 
-                // Removing the edges from all right nodes.
-                removeAllEdgesComingFromLeftNode(satisfiedLeftNode);
-                leftNodes.remove(satisfiedLeftNode);
-                leftNodeQueueByTranslation.remove(satisfiedLeftNode);
+                removeEdge(selectedEdge, true, true);
             }
+
+            for (TreeSet<Edge> edgesByColor : satisfiedRightNode.edgesByClass) {
+                while (!edgesByColor.isEmpty()) {
+                    Edge e = edgesByColor.first();
+                    removeEdge(e, true, true);
+                }
+            }
+
 
             finalMapping.put(satisfiedRightNode, selectedLeftNodes);
 
-            aggregatedGrid.setYX(satisfiedRightNode.y, satisfiedRightNode.x, satisfiedClass);
+            aggregatedGrid.setYX(satisfiedRightNode.y, satisfiedRightNode.x, lastEdge.leftNode.c);
+
+            satisfiedRightNode.hasBeenSatisfied = true;
 
             rightNodes.remove(satisfiedRightNode);
 
-            nrOfTimesToAggregate--;
+            for (LeftNode completedLeftNode : selectedLeftNodes) {
+                completedLeftNode.done();
+            }
 
+            nrOfTimesToAggregate--;
+        }
+
+
+        public void completeSingleMatching() {
+            while (true) {
+                if (!leftNodeQueueByTranslation.isEmpty()) {
+                    break;
+                }
+                // Trying to match from the longest edge possible to minimize longest length.
+                Edge lastEdge = allAddedEdges.pollLast();
+                removeEdge(lastEdge, false, true);
+                LeftNode satisfiedLeftNode = lastEdge.leftNode;
+//                if (lastEdge.rightNode.edgesByClass[satisfiedLeftNode.c].size() < 4) {
+//                    allLeftNodesAre4Matched = false;
+//                    break;
+//                }
+                if (! satisfiedLeftNode.hasAlreadyValidMatching()) {
+                    int satisfiedClass = satisfiedLeftNode.c;
+                    if (nrOfSkipsPerClass[satisfiedClass-1] > 0) {
+                        nrOfSkipsPerClass[satisfiedClass-1] --;
+                        satisfiedLeftNode.done();
+                    }
+                    else {
+                        completeMatching(lastEdge);
+                    }
+                    break;
+                }
+            }
         }
 
         class LeftNode implements Comparable<LeftNode> {
@@ -184,18 +240,37 @@ public class BipartiteMatchingBottomUp {
             int y;
             int c; // Class
             int nextTranslation;
+            int nrOfValidFourMatches;
+            boolean alreadyAggregated;
 
             TreeSet<Edge> edges = new TreeSet<>();
+            public boolean isInQueue;
 
             LeftNode(int x, int y, int c) {
                 this.x = x;
                 this.y = y;
                 this.c = c;
                 this.nextTranslation = 0;
+                alreadyAggregated = false;
+                nrOfValidFourMatches = 0;
+                isInQueue = false;
             }
 
-            void addEdge(Edge edge) {
+            public void addEdge(Edge edge) {
                 edges.add(edge);
+            }
+
+            public boolean hasAlreadyValidMatching() {
+                return nrOfValidFourMatches >= 1;
+            }
+
+            public void increaseNrOfMatchings() {
+                this.nrOfValidFourMatches ++ ;
+            }
+
+            public void decreaseNrOfMatchings() {
+                this.nrOfValidFourMatches -- ;
+                addLeftNodeToQueueIfNecessary(this);
             }
 
 
@@ -216,13 +291,21 @@ public class BipartiteMatchingBottomUp {
                 }
                 return compareTo((LeftNode) obj) == 0;
             }
+
+            public void done() {
+                alreadyAggregated = true;
+                for (Edge edge : edges) {
+                    removeEdge(edge, true, false);
+                }
+                edges.clear();
+            }
         }
 
         class RightNode implements Comparable<RightNode> {
             int x, y;
-            TreeSet<Edge> [] edgesByClass;
+            public TreeSet<Edge> [] edgesByClass;
             int [] classCounts;
-            int classWhichHasBeenSatisfied = -1;
+            boolean hasBeenSatisfied;
 
             RightNode(int x, int y, int nrOfClasses) {
                 this.x = x;
@@ -232,35 +315,46 @@ public class BipartiteMatchingBottomUp {
                     edgesByClass[i] = new TreeSet<>();
                 }
                 classCounts = new int[nrOfClasses];
+                hasBeenSatisfied = false;
             }
 
             public TreeSet getEdgesByClass(int c) {
                 return edgesByClass[c-1];
             }
 
-            public void addEdge(Edge edge, int c) {
-                edgesByClass[c-1].add(edge);
+            public void addEdge(Edge edgeToAdd) {
+                int c = edgeToAdd.leftNode.c;
+                edgesByClass[c-1].add(edgeToAdd);
                 classCounts[c-1] += 1;
+                if (edgesByClass[c-1].size() == FOUR_MATCHING) {
+                    for (Edge edge : edgesByClass[c-1]) {
+                        edge.leftNode.increaseNrOfMatchings();
+                    }
+//                    hasBeenSatisfied = true;
+                }
+                else if (edgesByClass[c-1].size() > FOUR_MATCHING) {
+                    edgeToAdd.leftNode.increaseNrOfMatchings();
+                }
+
             }
 
-            public void removeEdge(Edge edge, int c) {
-                edgesByClass[c-1].remove(edge);
+            public void removeRightEdge(Edge edgeToRemove) {
+                int c = edgeToRemove.leftNode.c;
+                if (edgesByClass[c-1].size() == FOUR_MATCHING) {
+                    for (Edge edge : edgesByClass[c-1]) {
+                        edge.leftNode.decreaseNrOfMatchings();
+                    }
+                }
+                else if (edgesByClass[c-1].size() > FOUR_MATCHING) {
+                    edgeToRemove.leftNode.decreaseNrOfMatchings();
+                }
+                edgesByClass[c-1].remove(edgeToRemove);
                 classCounts[c-1] -= 1;
             }
 
             public boolean fourMatchingSatisfied() {
 
-                for (int i = 0; i < classCounts.length; i++) {
-                    if (classCounts[i] >= 4) {
-                        classWhichHasBeenSatisfied = i+1;
-                        return true;
-                    }
-                }
-                return false;
-            }
-
-            public int getClassWhichHasBeenSatisfied() {
-                return classWhichHasBeenSatisfied;
+                return hasBeenSatisfied;
             }
 
 
@@ -285,6 +379,11 @@ public class BipartiteMatchingBottomUp {
             @Override
             public int hashCode() {
                 return Objects.hash(x, y);
+            }
+
+            @Override
+            public String toString() {
+                return "Right (" + x + ", " + y + ")";
             }
         }
 
@@ -330,7 +429,7 @@ public class BipartiteMatchingBottomUp {
             @Override
             public String toString() {
                 return "Edge from L node (" + leftNode.y + ", " + leftNode.x + ", " + leftNode.c + ") " +
-                "to R node (" + rightNode.y + ", " + rightNode.x + ") (y,x). Distance: " + euclideanDistanceSquared;
+                        "to R node (" + rightNode.y + ", " + rightNode.x + ") (y,x). Distance: " + euclideanDistanceSquared;
             }
         }
 
@@ -401,6 +500,8 @@ public class BipartiteMatchingBottomUp {
 
 
 
+
+
     Grid performAggregation(Grid originalGrid) {
 
         originalGrid = originalGrid.clone();
@@ -416,7 +517,11 @@ public class BipartiteMatchingBottomUp {
 
         System.out.println("Start matching...");
         startTime = System.nanoTime();
-        graph.generateEdgesUntilNoMoreMatches();
+
+        while (graph.nrOfTimesToAggregate > 0) {
+            graph.generateEdgesUntilAllLeftNodesAreFourMatched();
+            graph.completeSingleMatching();
+        }
         timeTaken = System.nanoTime()-startTime;
 
         System.out.println("Matching time taken = " + timeTaken/1000000 + " ms");
@@ -424,12 +529,4 @@ public class BipartiteMatchingBottomUp {
 
         return aggregatedGrid;
     }
-
-
-
-
-
-
-
-
 }

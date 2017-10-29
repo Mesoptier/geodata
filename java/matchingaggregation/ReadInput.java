@@ -49,14 +49,12 @@ public class ReadInput {
             y = array.getInt(1);
             c = array.getInt(2);
 
-            classes[x][y] = c;
+            classes[y][x] = c;
         }
 
 
 //        System.out.println(grid.length);
         Grid g = new Grid(classes);
-
-
 
         return g;
     }

@@ -10,6 +10,7 @@ public class Grid {
     int height, width;
     int nrOfClasses = -1;
     int nrOfPointsToAggregate;
+    int [] nrOfPointsSkippablePerClass;
 
     Grid(int [][] classesGrid)
     {
@@ -68,14 +69,15 @@ public class Grid {
                         classCount.put(c, nrCount + 1);
                     }
                 }
-
             }
         }
 
         nrOfClasses = classCount.keySet().size();
+        nrOfPointsSkippablePerClass = new int[nrOfClasses];
 
         for (int classType : classCount.keySet()) {
             nrOfPointsToAggregate += classCount.get(classType) / 4;
+            nrOfPointsSkippablePerClass[classType - 1] = classCount.get(classType) % 4;
         }
 
     }
@@ -150,4 +152,14 @@ public class Grid {
         }
         return nrOfPointsToAggregate;
     }
+
+    public int [] getNumberOfTimesToSkipPerClass() {
+        if (nrOfClasses == -1) {
+            calculateNumberOfClasses();
+        }
+
+        return nrOfPointsSkippablePerClass;
+    }
+
+
 }

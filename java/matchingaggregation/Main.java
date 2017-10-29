@@ -1,6 +1,11 @@
 package matchingaggregation;
 
+import org.json.JSONException;
+
+import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * Created by Joost on 27/10/2017.
@@ -17,7 +22,7 @@ public class Main {
                 "22222        3   3   3   111",
                 "222      1   1     1    3  1"
         };
-        Grid grid = new Grid(testGrid);
+//        Grid grid = new Grid(testGrid);
 
 //        Grid grid = getRandomGrid(512, 512, 0.5, 3);
 //        Grid grid = new Grid(new String[] {
@@ -33,19 +38,26 @@ public class Main {
 //                "1                       1",
 //        });
 
+        Grid grid;
+        try {
+            grid = inputReader.loadJSON("C:\\Users\\Martijn\\Documents\\GeoData\\data\\", "zuideinde");
+        } catch (JSONException e) {
+            e.printStackTrace();
+            grid = new Grid(testGrid);
+        }
 
-//        Grid g = inputReader.loadJSON("C:\\Users\\Joost\\IdeaProjects\\GeoData\\src\\", "eindhoven");
-
-
-
-
-        grid.printGrid(false);
 
         BipartiteMatchingBottomUp matching = new BipartiteMatchingBottomUp();
+//        BipartiteMatchingTopDown matching = new BipartiteMatchingTopDown();
 
         long startTime = System.nanoTime();
         Grid aggregratedGrid = matching.performAggregation(grid);
         long timeTaken = System.nanoTime()-startTime;
+
+        // Mapping can be called via:
+        HashMap<Node,  ArrayList<Node>> finalMapping = matching.getFinalMapping();
+
+
 
         System.out.println();
         System.out.println("Woo! Aggregation");
@@ -57,7 +69,17 @@ public class Main {
         System.out.println("Final Score (MSE): " + matching.getFinalScore() / aggregratedGrid.getNumberOfValues());
         System.out.println("Final Score (RMSE): " +
                 Math.sqrt(matching.getFinalScore() / aggregratedGrid.getNumberOfValues()));
-
+                
+        File file = new File("C:\\Users\\Martijn\\Documents\\GeoData\\data\\" + "zuideindeAggregated.json");
+        if (file.exists()) {
+            file.delete();
+        }
+        file.createNewFile();
+        try {
+            WriteOutput.writeJSON(file, aggregratedGrid);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
 
     }
 

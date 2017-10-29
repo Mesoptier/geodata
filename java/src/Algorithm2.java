@@ -23,6 +23,8 @@ import org.json.JSONObject;
  */
 public class Algorithm2 {
     
+    private static Map<Point, List<Point>> mapping;
+    
     /**
      * Algorithm 2
      * Idea: We place a grid over the input, for each grid-square we approximate an optimal solution.
@@ -47,23 +49,28 @@ public class Algorithm2 {
         Panel p = new Panel(scaleImage(setColours(image), scale));
         
         int zoomLevel = 4;
-        int gridSize = 1;
+        int gridSize = 2;
+        
+        mapping = new HashMap<>();
         
         ImageMeasure imageMeasure = compute(image, zoomLevel, 2 * gridSize);
-        System.out.println("qDist: " + imageMeasure.getQDist());
+        //System.out.println("qDist: " + imageMeasure.getQDist());
         System.out.println("qLoc: " + imageMeasure.getQLoc());
 
         Panel p2 = new Panel(scaleImage(setColours(imageMeasure.getImage()), scale *  2 * zoomLevel));
     }
     
-    public static void runAlg2(String path, String filename,
+    public static Map<Point, List<Point>> runAlg2(String path, String filename,
             int width, int height, int zoomLevel, File outputFile) 
             throws JSONException, IOException {
         Map<Integer, List<Point>> data = loadJSON(path, filename);
         BufferedImage image = imageFromJSON(data, width, height);
+        mapping = new HashMap<>();
         
-        ImageMeasure imageMeasure = compute(image, zoomLevel, 2 * 1);
+        ImageMeasure imageMeasure = compute(image, zoomLevel, 2 * 2);
         saveAsJSON(imageMeasure, outputFile);
+        
+        return mapping;
     }
     
     private static void saveAsJSON(ImageMeasure imageMeasure, File file) 
@@ -204,6 +211,12 @@ public class Algorithm2 {
         BufferedImage output = new BufferedImage(input.getWidth() / (2 * level), 
                 input.getHeight() / (2 * level), input.getType());
         
+        for (int x = 0; x < output.getWidth(); x++) {
+            for (int y = 0; y < output.getHeight(); y++) {
+                output.setRGB(x, y, -1);
+            }
+        }
+        
         List<Double> qDists = new ArrayList<>();
         List<Double> qLocs = new ArrayList<>();
         
@@ -218,7 +231,7 @@ public class Algorithm2 {
                         gridSize * 2 * level);
                 gridImage = output.getSubimage(x, y, gridSize, gridSize);
 
-                gridMeasure = computeGrid(subImage, gridImage, level, gridSize);
+                gridMeasure = computeGrid(subImage, gridImage, level, gridSize, x, y);
                 qDists.add(gridMeasure.getQDist());
                 qLocs.add(gridMeasure.getQLoc());
 
@@ -229,11 +242,13 @@ public class Algorithm2 {
         return new ImageMeasure(
                 output, 
                 qDists.stream().mapToDouble(v -> v).average().getAsDouble(), 
-                qLocs.stream().mapToDouble(v -> v).average().getAsDouble()
+                //qLocs.stream().mapToDouble(v -> v).average().getAsDouble()
+                qLocs.stream().mapToDouble(v -> v).sum() / (output.getWidth() * output.getHeight())
         );
     }
     
-    private static ImageMeasure computeGrid(BufferedImage subImage, BufferedImage gridImage, int level, int gridSize) {
+    private static ImageMeasure computeGrid(BufferedImage subImage, 
+            BufferedImage gridImage, int level, int gridSize, int xOffset, int yOffset) {
         Map<Integer, Integer> colours = new HashMap<>();
         
         Map<Integer, Integer>[][] colourMapping = new Map[gridImage.getWidth()][gridImage.getHeight()];
@@ -270,9 +285,10 @@ public class Algorithm2 {
         
         int fullMergeCount = 2 * level * 2 * level;
         List<Map.Entry<Integer, Integer>> orderedColours = new ArrayList<>();
-        colours.entrySet().stream().filter(c -> c.getKey() != 0)
+        colours.entrySet().stream()//.filter(c -> c.getKey() != 0)
                 .forEach(c -> orderedColours.add(
                         new AbstractMap.SimpleEntry<>(c.getKey(), c.getValue())));
+        int subtract = orderedColours.stream().mapToInt(i -> i.getValue()).sum() / (gridSize * gridSize);
         
         double qLoc = 0, qLocTemp;
         
@@ -290,21 +306,15 @@ public class Algorithm2 {
             outer:
             for (int x = 0; x < gridImage.getWidth(); x++) {
                 for (int y = 0; y < gridImage.getHeight(); y++) {
-                    dif = colourMapping[x][y].getOrDefault(colour, -1);
+                    dif = colourMapping[x][y].getOrDefault(colour, Integer.MIN_VALUE);
 
-                    if (dif > maxDif && gridImage.getRGB(x, y) == 0) {
+                    if (dif > maxDif && gridImage.getRGB(x, y) == -1) {
                         maxX = x;
                         maxY = y;
                         maxDif = dif;
 
-                        if (maxDif >= fullMergeCount) {
+                        if (maxDif >= subtract) {
                             qLocTemp = 0;
-                        } else {
-                            qLocTemp = (fullMergeCount - maxDif) *
-                                    Math.sqrt((0.5 * gridSize * 2 * level)
-                                    * (0.5 * gridSize * 2 * level)
-                                    + (0.5 * gridSize * 2 * level)
-                                    * (0.5 * gridSize * 2 * level));
                         }
                     }
                 }
@@ -315,10 +325,84 @@ public class Algorithm2 {
             }
             
             orderedColours.get(0).setValue(orderedColours.get(0).getValue() 
-                    - (fullMergeCount / gridSize));
-            colourMapping[maxX][maxY].put(colour, 
-                    colourMapping[maxX][maxY].getOrDefault(colour, 
-                            (fullMergeCount / gridSize)) - (fullMergeCount / gridSize));
+                    - (subtract ));
+            colourMapping[maxX][maxY].put(colour,
+                    colourMapping[maxX][maxY].getOrDefault(colour,
+                            (subtract)) - (subtract));
+
+            Point pA = new Point(maxX + xOffset, maxY + yOffset);
+            mapping.put(pA, new ArrayList<>());
+            
+            if (maxDif < subtract) {
+                dif = subtract - maxDif;
+                int tempDif;
+                int e = 1;
+                
+                int d0 = maxDif;
+                for (int xO = 0; xO < 2 * level && d0 > 0; xO++) {
+                    for (int yO = 0; yO < 2 * level && d0 > 0; yO++) {
+                        mapping.get(pA).add(new Point(xOffset + maxX + xO, yOffset + maxY + yO));
+                        d0--;
+                    }
+                }
+                
+                while (dif > 0 && e <= gridSize) {
+                    for (int ex = -e; ex <= e && dif > 0; ex += 2 * e) {
+                        if (maxX + ex < 0 || gridImage.getWidth() <= maxX + ex ) {
+                            continue;
+                        }
+                        
+                        for (int ey = -e; ey <= e && dif > 0; ey += 2 * e) {
+                            if (maxY + ey < 0 || gridImage.getHeight() <= maxY + ey) {
+                                continue;
+                            }
+
+                            if (colourMapping[maxX + ex][maxY + ey].getOrDefault(colour, 0) > 0) {
+                                if (colourMapping[maxX + ex][maxY + ey].get(colour) <= dif) {
+                                    qLocTemp += colourMapping[maxX + ex][maxY + ey].get(colour) *
+                                            ((ex * 2 * level)
+                                            * (ex * 2 * level)
+                                            + (ey * 2 * level)
+                                            * (ey * 2 * level));
+                                    tempDif = colourMapping[maxX + ex][maxY + ey].get(colour);
+                                } else {
+                                    qLocTemp += dif *
+                                            ((ex * 2 * level)
+                                            * (ex * 2 * level)
+                                            + (ey * 2 * level)
+                                            * (ey * 2 * level));
+                                    tempDif = dif;
+                                }
+                                
+                                d0 = tempDif;
+                                for (int xO = 0; xO < 2 * level && d0 > 0; xO++) {
+                                    for (int yO = 0; yO < 2 * level && d0 > 0; yO++) {
+                                        mapping.get(pA).add(new Point(
+                                                xOffset + maxX + ex + xO, 
+                                                yOffset + maxY + ey + yO));
+                                        d0--;
+                                    }
+                                }
+                                
+                                colourMapping[maxX + ex][maxY + ey].put(colour, 
+                                        colourMapping[maxX + ex][maxY + ey].get(colour) - dif);
+                                if (colourMapping[maxX + ex][maxY + ey].get(colour) <= 0) {
+                                    colourMapping[maxX + ex][maxY + ey].remove(colour);
+                                }
+                                
+                                dif -= tempDif;
+                            }
+                        }
+                    }
+                    e++;
+                }
+            } else {
+                for (int xO = 0; xO < 2 * level; xO++) {
+                    for (int yO = 0; yO < 2 * level; yO++) {
+                        mapping.get(pA).add(new Point(xOffset + maxX + xO, yOffset + maxY + yO));
+                    }
+                }
+            }
 
             if (orderedColours.get(0).getValue() <= 0) {
                 orderedColours.remove(0);
