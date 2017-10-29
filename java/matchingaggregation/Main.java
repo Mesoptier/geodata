@@ -38,7 +38,7 @@ public class Main {
 
         Grid grid;
         try {
-            grid = inputReader.loadJSON("C:\\Users\\Martijn\\Documents\\GeoData\\data\\", "eindhoven");
+            grid = inputReader.loadJSON("C:\\Users\\Martijn\\Documents\\GeoData\\data\\", "zuideinde");
         } catch (JSONException e) {
             e.printStackTrace();
             grid = new Grid(testGrid);
@@ -63,7 +63,7 @@ public class Main {
         System.out.println("Final Score (MSE): " + matching.getFinalScore() / aggregratedGrid.getNumberOfValues());
         System.out.println("Final Score (RMSE): " +
                 Math.sqrt(matching.getFinalScore() / aggregratedGrid.getNumberOfValues()));
-        File file = new File("C:\\Users\\Martijn\\Documents\\GeoData\\data\\" + "eindhovenAggregated.json");
+        File file = new File("C:\\Users\\Martijn\\Documents\\GeoData\\data\\" + "zuideindeAggregated.json");
         if (file.exists()) {
             file.delete();
         }
