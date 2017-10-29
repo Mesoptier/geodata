@@ -47,7 +47,7 @@ public class Algorithm2 {
         Panel p = new Panel(scaleImage(setColours(image), scale));
         
         int zoomLevel = 4;
-        int gridSize = 2;
+        int gridSize = 1;
         
         ImageMeasure imageMeasure = compute(image, zoomLevel, 2 * gridSize);
         System.out.println("qDist: " + imageMeasure.getQDist());
@@ -62,7 +62,7 @@ public class Algorithm2 {
         Map<Integer, List<Point>> data = loadJSON(path, filename);
         BufferedImage image = imageFromJSON(data, width, height);
         
-        ImageMeasure imageMeasure = compute(image, zoomLevel, 2 * 2);
+        ImageMeasure imageMeasure = compute(image, zoomLevel, 2 * 1);
         saveAsJSON(imageMeasure, outputFile);
     }
     
