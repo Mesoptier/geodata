@@ -40,22 +40,22 @@ public class Main {
 
         Grid grid;
         try {
-            grid = inputReader.loadJSON("C:\\Users\\Martijn\\Documents\\GeoData\\data\\", "zuideinde");
+            grid = inputReader.loadJSON("C:\\Users\\Martijn\\Documents\\GeoData\\data\\", "denhaag");
         } catch (JSONException e) {
             e.printStackTrace();
             grid = new Grid(testGrid);
         }
 
 
-        BipartiteMatchingBottomUp matching = new BipartiteMatchingBottomUp();
-//        BipartiteMatchingTopDown matching = new BipartiteMatchingTopDown();
+//        BipartiteMatchingBottomUp matching = new BipartiteMatchingBottomUp();
+        BipartiteMatchingTopDown matching = new BipartiteMatchingTopDown();
 
         long startTime = System.nanoTime();
         Grid aggregratedGrid = matching.performAggregation(grid);
         long timeTaken = System.nanoTime()-startTime;
 
         // Mapping can be called via:
-        HashMap<Node,  ArrayList<Node>> finalMapping = matching.getFinalMapping();
+//        HashMap<Node,  ArrayList<Node>> finalMapping = matching.getFinalMapping();
 
 
 
@@ -70,7 +70,7 @@ public class Main {
         System.out.println("Final Score (RMSE): " +
                 Math.sqrt(matching.getFinalScore() / aggregratedGrid.getNumberOfValues()));
                 
-        File file = new File("C:\\Users\\Martijn\\Documents\\GeoData\\data\\" + "zuideindeAggregated.json");
+        File file = new File("C:\\Users\\Martijn\\Documents\\GeoData\\data\\" + "denhaagAggregated.json");
         if (file.exists()) {
             file.delete();
         }
