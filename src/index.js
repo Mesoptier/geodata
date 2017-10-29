@@ -40,8 +40,8 @@ function updatePoints(filename) {
         .append('circle')
             .attr('r', d => (config.gridSize / 2) - config.gridPadding)
         .merge(circle)
-            .attr('cx', d => d[0] * config.gridSize)
-            .attr('cy', d => d[1] * config.gridSize)
+            .attr('cx', d => d[0] * config.gridSize + (config.gridSize / 2))
+            .attr('cy', d => d[1] * config.gridSize + (config.gridSize / 2))
             .style('fill', d => ['', '#ff7b9d', '#56c300', '#00b6ff'][d[2]]);
 
     circle.exit().remove();
