@@ -4,6 +4,7 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.AbstractMap;
@@ -42,15 +43,69 @@ public class Algorithm2 {
         Map<Integer, List<Point>> data = loadJSON(path, filename);
         BufferedImage image = imageFromJSON(data, 1024, 1024);
         
-        Panel p = new Panel(scaleImage(setColours(image), 2));
+        int scale = 1;
+        Panel p = new Panel(scaleImage(setColours(image), scale));
         
-        int level = 2;
-        ImageMeasure imageMeasure = compute(image, level, 2);
-        System.out.println(imageMeasure.getQDist());
+        int zoomLevel = 4;
+        int gridSize = 1;
         
-        Panel p2 = new Panel(scaleImage(setColours(imageMeasure.getImage()), 2 * 2 * level));
+        ImageMeasure imageMeasure = compute(image, zoomLevel, 2 * gridSize);
+        System.out.println("qDist: " + imageMeasure.getQDist());
+        System.out.println("qLoc: " + imageMeasure.getQLoc());
+
+        Panel p2 = new Panel(scaleImage(setColours(imageMeasure.getImage()), scale *  2 * zoomLevel));
     }
     
+    public static void runAlg2(String path, String filename,
+            int width, int height, int zoomLevel, File outputFile) 
+            throws JSONException, IOException {
+        Map<Integer, List<Point>> data = loadJSON(path, filename);
+        BufferedImage image = imageFromJSON(data, width, height);
+        
+        ImageMeasure imageMeasure = compute(image, zoomLevel, 2 * 1);
+        saveAsJSON(imageMeasure, outputFile);
+    }
+    
+    private static void saveAsJSON(ImageMeasure imageMeasure, File file) 
+            throws JSONException, IOException {
+        JSONObject json = toJSON(imageMeasure.getImage());
+        json.put("qDist", imageMeasure.getQDist());
+        json.put("qLoc", imageMeasure.getQLoc());
+        
+        try (FileWriter writer = new FileWriter(file)) {
+            writer.append(json.toString());
+        }
+    }
+    
+    /**
+     * Converts an image to JSON, only including points with a colour
+     * 
+     * @param image image to convert
+     * @return JSONObject with width, height and points ([x, y, c]) 
+     * @throws JSONException if an error occurred while created JSON
+     */
+    public static JSONObject toJSON(BufferedImage image) throws JSONException {
+        JSONObject json = new JSONObject();
+        json.put("width", image.getWidth());
+        json.put("height", image.getHeight());
+        
+        JSONArray points = new JSONArray();
+        for (int x = 0; x < image.getWidth(); x++) {
+            for (int y = 0; y < image.getHeight(); y++) {
+                switch (image.getRGB(x, y)) {
+                    case 0:
+                        break;
+                    default:
+                        points.put(new JSONArray(
+                                "[" + x + "," + y + "," + image.getRGB(x, y) + "]"));
+                        break;
+                }
+            }
+        }
+        
+        json.put("points", points);
+        return json;
+    }
     
     private static BufferedImage imageFromJSON(Map<Integer, List<Point>> json, int width, int height) {
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
@@ -58,17 +113,6 @@ public class Algorithm2 {
         json.forEach((c, ps) -> {
             ps.forEach(p -> {
                 image.setRGB(p.x, p.y, c);
-                /*switch (c) {
-                    case 1: // roze
-                        image.setRGB(p.x, p.y, -34146);
-                        break;
-                    case 2: // groen
-                        image.setRGB(p.x, p.y, -10894848);
-                        break;
-                    case 3: // blauw
-                        image.setRGB(p.x, p.y, -16730113);
-                        break;
-                }*/
             });
         });
 
@@ -167,31 +211,21 @@ public class Algorithm2 {
         BufferedImage subImage, gridImage;
         for (int x = 0; x < output.getWidth(); x += gridSize) {
             for (int y = 0; y < output.getHeight(); y += gridSize) {
-                
-                if ((x + gridSize < output.getWidth()) && (y + gridSize < output.getHeight())) {
-                    
-                    subImage = input.getSubimage(
-                            x * 2 * level,
-                            y * 2 * level,
-                            gridSize * 2 * level,
-                            gridSize * 2 * level);
-                    gridImage = output.getSubimage(x, y, gridSize, gridSize);
+                subImage = input.getSubimage(
+                        x * 2 * level,
+                        y * 2 * level,
+                        gridSize * 2 * level,
+                        gridSize * 2 * level);
+                gridImage = output.getSubimage(x, y, gridSize, gridSize);
 
-                    gridMeasure = computeGrid(subImage, gridImage, level, gridSize);
-                    qDists.add(gridMeasure.getQDist());
-                    qLocs.add(gridMeasure.getQLoc());
+                gridMeasure = computeGrid(subImage, gridImage, level, gridSize);
+                qDists.add(gridMeasure.getQDist());
+                qLocs.add(gridMeasure.getQLoc());
 
-                    gridMeasure.getImage().createGraphics().drawImage(output, x, y, null);
-
-                } else if (x + gridSize < output.getWidth()) {
-
-                } else if (y + gridSize < output.getHeight()) {
-
-                }
-
+                gridMeasure.getImage().createGraphics().drawImage(output, x, y, null);
             }
         }
-        
+
         return new ImageMeasure(
                 output, 
                 qDists.stream().mapToDouble(v -> v).average().getAsDouble(), 
@@ -201,7 +235,6 @@ public class Algorithm2 {
     
     private static ImageMeasure computeGrid(BufferedImage subImage, BufferedImage gridImage, int level, int gridSize) {
         Map<Integer, Integer> colours = new HashMap<>();
-        int gridDots = gridImage.getWidth() * gridImage.getHeight();
         
         Map<Integer, Integer>[][] colourMapping = new Map[gridImage.getWidth()][gridImage.getHeight()];
         
@@ -241,7 +274,9 @@ public class Algorithm2 {
                 .forEach(c -> orderedColours.add(
                         new AbstractMap.SimpleEntry<>(c.getKey(), c.getValue())));
         
-        int count, maxDif, maxX, maxY, dif, expand = 0;
+        double qLoc = 0, qLocTemp;
+        
+        int count, maxDif, maxX, maxY, dif;
         while (!orderedColours.isEmpty()) {
             Collections.sort(orderedColours, (a, b) -> Integer.compare(b.getValue(), a.getValue()));
             
@@ -250,40 +285,40 @@ public class Algorithm2 {
             maxDif = Integer.MIN_VALUE;
             maxX = -1;
             maxY = -1;
+            qLocTemp = 0;
            
             outer:
             for (int x = 0; x < gridImage.getWidth(); x++) {
                 for (int y = 0; y < gridImage.getHeight(); y++) {
-                    for (int e = -expand; e <= expand; e++) {
-                        if (x + e < 0 || y + e < 0 
-                                || gridImage.getWidth() <= x + e 
-                                || gridImage.getHeight() <= y + e) {
-                            continue;
-                        }
-                        
-                        dif = colourMapping[x][y].getOrDefault(colour, 0);
-                        
-                        if (dif > maxDif && gridImage.getRGB(x, y) == 0) {
-                            maxX = x;
-                            maxY = y;
-                            maxDif = dif;
+                    dif = colourMapping[x][y].getOrDefault(colour, -1);
+
+                    if (dif > maxDif && gridImage.getRGB(x, y) == 0) {
+                        maxX = x;
+                        maxY = y;
+                        maxDif = dif;
+
+                        if (maxDif >= fullMergeCount) {
+                            qLocTemp = 0;
+                        } else {
+                            qLocTemp = (fullMergeCount - maxDif) *
+                                    Math.sqrt((0.5 * gridSize * 2 * level)
+                                    * (0.5 * gridSize * 2 * level)
+                                    + (0.5 * gridSize * 2 * level)
+                                    * (0.5 * gridSize * 2 * level));
                         }
                     }
                 }
             }
             
             if (maxDif == Integer.MIN_VALUE) {
-                expand++;
-                
-                if (expand > gridSize) {
-                    break;
-                }
-                
-                continue;
+                break;
             }
             
-            orderedColours.get(0).setValue(orderedColours.get(0).getValue() - fullMergeCount);
-            colourMapping[maxX][maxY].put(colour, colourMapping[maxX][maxY].getOrDefault(colour, fullMergeCount) - fullMergeCount);
+            orderedColours.get(0).setValue(orderedColours.get(0).getValue() 
+                    - (fullMergeCount / gridSize));
+            colourMapping[maxX][maxY].put(colour, 
+                    colourMapping[maxX][maxY].getOrDefault(colour, 
+                            (fullMergeCount / gridSize)) - (fullMergeCount / gridSize));
 
             if (orderedColours.get(0).getValue() <= 0) {
                 orderedColours.remove(0);
@@ -294,6 +329,8 @@ public class Algorithm2 {
             }
             
             gridImage.setRGB(maxX, maxY, colour);
+            
+            qLoc += qLocTemp;
         }
         
         Map<Integer, Integer> gridColours = new HashMap<>();
@@ -320,7 +357,7 @@ public class Algorithm2 {
         
         double qDist = sum / colours.keySet().size();
         
-        return new ImageMeasure(gridImage, qDist, 0);
+        return new ImageMeasure(gridImage, qDist, qLoc);
     }
     
     private static class ImageMeasure {
